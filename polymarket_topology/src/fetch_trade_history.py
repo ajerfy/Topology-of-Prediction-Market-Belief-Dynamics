@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import logging
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,27 @@ from utils import (
     request_json,
     setup_logging,
 )
+
+DEFAULT_CRYPTO_KEYWORDS = [
+    "bitcoin",
+    "btc",
+    "ethereum",
+    " eth ",
+    "solana",
+    " sol ",
+    "xrp",
+    "doge",
+    "crypto",
+    "cryptocurrency",
+    "coinbase",
+    "binance",
+    "tether",
+    "usdt",
+    "microstrategy",
+    "mstr",
+    "stablecoin",
+    "etf",
+]
 
 
 def token_ids(market: pd.Series) -> tuple[str | None, str | None]:
@@ -77,6 +99,43 @@ def normalize_trades(trades: list[dict[str, Any]], market: pd.Series) -> list[di
     return rows
 
 
+def market_text(market: pd.Series) -> str:
+    tags = market.get("tags")
+    if isinstance(tags, (list, tuple)):
+        tags_text = " ".join(str(tag) for tag in tags)
+    elif tags is None:
+        tags_text = ""
+    else:
+        tags_text = str(tags)
+    fields = [
+        market.get("question"),
+        market.get("category"),
+        market.get("slug"),
+        market.get("description"),
+        tags_text,
+    ]
+    return f" {' '.join(str(field or '') for field in fields).lower()} "
+
+
+def filter_markets_by_keywords(markets: pd.DataFrame, keywords: list[str]) -> pd.DataFrame:
+    if not keywords:
+        return markets
+    patterns = []
+    for keyword in keywords:
+        term = keyword.lower().strip()
+        if not term:
+            continue
+        if term.isalpha() and len(term) <= 4:
+            patterns.append(re.compile(rf"\b{re.escape(term)}\b"))
+        else:
+            patterns.append(re.compile(re.escape(term)))
+    mask = markets.apply(
+        lambda row: any(pattern.search(market_text(row)) for pattern in patterns),
+        axis=1,
+    )
+    return markets[mask].copy()
+
+
 def fetch_trades_for_market(
     session: requests.Session,
     condition_id: str,
@@ -112,6 +171,11 @@ def main() -> None:
     parser.add_argument("--page-size", type=int, default=500)
     parser.add_argument("--max-trades-per-market", type=int, default=5000)
     parser.add_argument("--min-volume-clob", type=float, default=0.0)
+    parser.add_argument(
+        "--keywords",
+        default=None,
+        help="Comma-separated market keyword filter. Use 'crypto' for a built-in crypto keyword set.",
+    )
     parser.add_argument("--log-level", default="INFO")
     args = parser.parse_args()
 
@@ -131,6 +195,14 @@ def main() -> None:
     markets = markets[markets["condition_id"].notna() & markets["yes_token_id"].notna()].copy()
     if "volume_clob" in markets.columns and args.min_volume_clob > 0:
         markets = markets[markets["volume_clob"].fillna(0) >= args.min_volume_clob]
+    if args.keywords:
+        if args.keywords.strip().lower() == "crypto":
+            keywords = DEFAULT_CRYPTO_KEYWORDS
+        else:
+            keywords = [keyword.strip() for keyword in args.keywords.split(",") if keyword.strip()]
+        before = len(markets)
+        markets = filter_markets_by_keywords(markets, keywords)
+        logging.info("Keyword filter kept %s/%s markets for keywords=%s", len(markets), before, keywords)
     if args.limit:
         markets = markets.head(args.limit)
 

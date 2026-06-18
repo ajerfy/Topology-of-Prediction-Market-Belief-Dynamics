@@ -58,6 +58,19 @@ python src/fetch_trade_history.py \
   --max-trades-per-market 5000
 ```
 
+To build a crypto-focused panel from the expanded metadata universe:
+
+```bash
+python src/fetch_markets.py --limit 5000 --closed true --order volumeNum --ascending false
+python src/fetch_trade_history.py \
+  --input data/processed/markets.parquet \
+  --output data/processed/prices_long.parquet \
+  --keywords crypto \
+  --limit 40 \
+  --max-trades-per-market 1000
+python src/build_market_panel.py --freq 1h
+```
+
 Build an hourly market-state panel:
 
 ```bash
