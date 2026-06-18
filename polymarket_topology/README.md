@@ -6,6 +6,7 @@ This repository starts with a reproducible Polymarket data pipeline. The current
 
 - `data/raw/gamma_markets_*.json`: raw Gamma API market metadata responses.
 - `data/raw/clob_price_history_*.jsonl`: raw CLOB price-history responses, one market per line.
+- `data/raw/data_api_trades_*.jsonl`: raw Data API trade responses for longer-horizon reconstruction.
 - `data/processed/markets.parquet`: cleaned closed/resolved binary market metadata.
 - `data/processed/prices_long.parquet`: cleaned YES-token history with columns:
   - `timestamp`
@@ -47,6 +48,16 @@ Fetch historical YES-token prices. The CLOB API returns empty histories for some
 python src/fetch_price_history.py --input data/processed/markets.parquet --limit 250
 ```
 
+For research-scale historical coverage, use the Data API trade fallback. The CLOB `prices-history` endpoint is useful for recent chart history, but its public interval filters are short horizon (`1h`, `6h`, `1d`, `1w`, `1m`). The trade fallback reconstructs YES probabilities from executed trades:
+
+```bash
+python src/fetch_trade_history.py \
+  --input data/processed/markets.parquet \
+  --output data/processed/prices_long.parquet \
+  --limit 1000 \
+  --max-trades-per-market 5000
+```
+
 Build an hourly market-state panel:
 
 ```bash
@@ -64,6 +75,7 @@ Useful alternatives:
 ```bash
 python src/fetch_markets.py --limit 1000 --closed true --order endDate --ascending false
 python src/fetch_price_history.py --input data/processed/markets.parquet --limit 500 --min-volume-clob 10000
+python src/fetch_trade_history.py --input data/processed/markets.parquet --limit 500 --max-trades-per-market 10000
 ```
 
 ## Validate The Data
@@ -88,3 +100,5 @@ It checks:
 Polymarket Gamma fields are not fully consistent across market vintages. The parser handles string-encoded JSON fields such as `outcomes`, `outcomePrices`, `clobTokenIds`, and `umaResolutionStatuses`, while preserving raw responses in `data/raw` for auditability.
 
 The initial cleaned metadata keeps only binary Yes/No markets with a YES CLOB token ID. Resolved outcome is inferred from final `outcomePrices` when one outcome is at least `0.99`; the raw resolution metadata is retained where available.
+
+For statistically meaningful topology experiments, do not rely on the small committed smoke-test sample alone. Pull a longer trade-derived panel across many closed markets and report coverage before modeling: number of markets, number of markets with usable histories, timestamp span, category/event mix, panel missingness, and per-market observation counts.

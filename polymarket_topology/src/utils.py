@@ -11,6 +11,7 @@ import requests
 
 GAMMA_BASE_URL = "https://gamma-api.polymarket.com"
 CLOB_BASE_URL = "https://clob.polymarket.com"
+DATA_API_BASE_URL = "https://data-api.polymarket.com"
 
 
 def project_root() -> Path:
