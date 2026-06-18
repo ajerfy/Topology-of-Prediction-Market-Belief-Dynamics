@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 .DS_Store
+data/raw/data_api_trades_*.jsonl

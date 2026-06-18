@@ -88,6 +88,10 @@ def normalize_trades(trades: list[dict[str, Any]], market: pd.Series) -> list[di
                 "category": market.get("category"),
                 "event_id": str(market.get("event_id")) if pd.notna(market.get("event_id")) else None,
                 "resolved_outcome": market.get("resolved_outcome"),
+                "market_family": market.get("market_family"),
+                "asset": market.get("asset"),
+                "is_core": bool(market.get("is_core")) if pd.notna(market.get("is_core")) else False,
+                "is_satellite": bool(market.get("is_satellite")) if pd.notna(market.get("is_satellite")) else False,
                 "source": "data_api_trades",
                 "trade_asset": trade.get("asset"),
                 "trade_outcome": trade.get("outcome"),
@@ -165,11 +169,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Fetch Polymarket Data API trades and reconstruct YES-token probabilities."
     )
-    parser.add_argument("--input", default="data/processed/markets.parquet")
+    parser.add_argument("--input", default="data/processed/market_universe.parquet")
     parser.add_argument("--output", default="data/processed/prices_long.parquet")
     parser.add_argument("--limit", type=int, default=None, help="Maximum markets to scan.")
     parser.add_argument("--page-size", type=int, default=500)
-    parser.add_argument("--max-trades-per-market", type=int, default=5000)
+    parser.add_argument("--max-trades-per-market", type=int, default=50000)
     parser.add_argument("--min-volume-clob", type=float, default=0.0)
     parser.add_argument(
         "--keywords",
@@ -192,6 +196,8 @@ def main() -> None:
     ensure_dirs([raw_dir, output_path.parent])
 
     markets = pd.read_parquet(input_path)
+    if {"is_core", "is_satellite"}.issubset(markets.columns):
+        markets = markets[markets["is_core"].fillna(False) | markets["is_satellite"].fillna(False)].copy()
     markets = markets[markets["condition_id"].notna() & markets["yes_token_id"].notna()].copy()
     if "volume_clob" in markets.columns and args.min_volume_clob > 0:
         markets = markets[markets["volume_clob"].fillna(0) >= args.min_volume_clob]
@@ -249,16 +255,19 @@ def main() -> None:
         "category",
         "event_id",
         "resolved_outcome",
+        "market_family",
+        "asset",
+        "is_core",
+        "is_satellite",
     ]
     for column in required:
         if column not in prices.columns:
             prices[column] = pd.Series(dtype="object")
     if not prices.empty:
         prices = prices.sort_values(["market_id", "timestamp"])
-        prices = prices.drop_duplicates(
-            subset=["market_id", "timestamp", "yes_price", "transaction_hash"],
-            keep="last",
-        )
+        prices = prices[(prices["yes_price"] >= 0) & (prices["yes_price"] <= 1)].copy()
+        dedupe_cols = ["transaction_hash", "market_id", "timestamp", "trade_asset", "trade_size", "yes_price"]
+        prices = prices.drop_duplicates(subset=dedupe_cols, keep="last")
     prices.to_parquet(output_path, index=False)
     logging.info(
         "Saved %s trade-derived rows across %s markets to %s",

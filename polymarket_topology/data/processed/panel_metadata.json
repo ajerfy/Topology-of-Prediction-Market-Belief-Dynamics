@@ -1,0 +1,50 @@
+{
+  "panel_hourly_raw": {
+    "frequency": "1h",
+    "fill_policy": "none",
+    "timestamp_count": 21468,
+    "market_count": 252,
+    "missingness": 0.991438715726027,
+    "timestamp_min": "2024-01-05 10:00:00+00:00",
+    "timestamp_max": "2026-06-17 21:00:00+00:00",
+    "active_market_min": 0,
+    "active_market_median": 1.0,
+    "active_market_max": 35
+  },
+  "panel_hourly_active_ffill": {
+    "frequency": "1h",
+    "fill_policy": "active_ffill_limit_unlimited",
+    "timestamp_count": 21468,
+    "market_count": 252,
+    "missingness": 0.9824515484101846,
+    "timestamp_min": "2024-01-05 10:00:00+00:00",
+    "timestamp_max": "2026-06-17 21:00:00+00:00",
+    "active_market_min": 0,
+    "active_market_median": 1.0,
+    "active_market_max": 37
+  },
+  "panel_hourly_core": {
+    "frequency": "1h",
+    "fill_policy": "strict_active_ffill_core_limit_unlimited",
+    "timestamp_count": 263,
+    "market_count": 23,
+    "missingness": 0.12564060175235575,
+    "timestamp_min": "2025-12-21 10:00:00+00:00",
+    "timestamp_max": "2026-01-01 08:00:00+00:00",
+    "active_market_min": 15,
+    "active_market_median": 22.0,
+    "active_market_max": 23
+  },
+  "panel_hourly_core_plus_satellites": {
+    "frequency": "1h",
+    "fill_policy": "strict_active_ffill_core_plus_satellites_limit_unlimited",
+    "timestamp_count": 263,
+    "market_count": 37,
+    "missingness": 0.09320727571678142,
+    "timestamp_min": "2025-12-21 10:00:00+00:00",
+    "timestamp_max": "2026-01-01 08:00:00+00:00",
+    "active_market_min": 28,
+    "active_market_median": 35.0,
+    "active_market_max": 37
+  }
+}

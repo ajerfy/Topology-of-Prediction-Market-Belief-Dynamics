@@ -1,0 +1,65 @@
+{
+  "generated_at": "2026-06-18T23:56:54.271739+00:00",
+  "analysis_ready": false,
+  "quality_gates": {
+    "min_core_markets": true,
+    "min_points_per_market": true,
+    "min_calendar_days": false,
+    "min_median_active_core": true,
+    "max_primary_missingness": true,
+    "no_unresolved_selected": true,
+    "no_non_binary_selected": true,
+    "price_bounds": true,
+    "excluded_reasons_complete": true,
+    "core_and_satellite_panels_exist": true
+  },
+  "thresholds": {
+    "min_core_markets": 20,
+    "min_points_per_market": 500,
+    "min_calendar_days": 180,
+    "min_median_active_core": 15,
+    "max_primary_missingness": 0.2
+  },
+  "counts": {
+    "metadata_markets": 1727,
+    "selected_markets": 252,
+    "core_markets": 141,
+    "satellite_markets": 111,
+    "price_rows": 862924,
+    "price_markets": 252,
+    "duplicate_rows": 0,
+    "unresolved_selected": 0,
+    "non_binary_selected": 0,
+    "excluded_without_reason": 0
+  },
+  "coverage": {
+    "timestamp_min": "2024-01-05 10:24:56+00:00",
+    "timestamp_max": "2026-06-17 21:12:58+00:00",
+    "raw_trade_calendar_days": 894.4500231481481,
+    "primary_usable_days": 10.958333333333334,
+    "primary_panel_shape": [
+      263,
+      23
+    ],
+    "core_plus_panel_shape": [
+      263,
+      37
+    ],
+    "primary_missingness": 0.12564060175235575,
+    "median_active_core_markets": 22.0,
+    "max_points_per_market": 3500,
+    "markets_at_max_points": 239
+  },
+  "market_counts_by_family": {
+    "btc_price": 118,
+    "crypto_policy": 104,
+    "eth_price": 23,
+    "microstrategy": 5,
+    "crypto_etf": 2
+  },
+  "limitations": [
+    "One or more strict quality gates failed; inspect quality_gates and coverage outputs.",
+    "The raw trades span more calendar time than the strict hourly panel because simultaneous active BTC/ETH coverage is sparse under the current public trade-history pull.",
+    "239 markets hit the observed per-market trade fetch cap of 3500; deeper historical pagination or an archival source is needed for lifetime histories."
+  ]
+}

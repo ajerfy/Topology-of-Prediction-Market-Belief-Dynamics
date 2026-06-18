@@ -1,0 +1,12 @@
+{
+  "frequency": "1h",
+  "fill_policy": "strict_active_ffill_core_plus_satellites_limit_unlimited",
+  "timestamp_count": 263,
+  "market_count": 37,
+  "missingness": 0.09320727571678142,
+  "timestamp_min": "2025-12-21 10:00:00+00:00",
+  "timestamp_max": "2026-01-01 08:00:00+00:00",
+  "active_market_min": 28,
+  "active_market_median": 35.0,
+  "active_market_max": 37
+}
