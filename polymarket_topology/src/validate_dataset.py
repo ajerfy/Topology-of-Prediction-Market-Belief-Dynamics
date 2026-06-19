@@ -18,6 +18,33 @@ QUALITY_GATES = {
     "max_primary_missingness": 0.20,
 }
 
+REQUIRED_PRICE_COLUMNS = [
+    "timestamp",
+    "market_id",
+    "token_id",
+    "yes_price",
+    "category",
+    "event_id",
+    "resolved_outcome",
+]
+
+REQUIRED_UNIVERSE_COLUMNS = [
+    "market_id",
+    "condition_id",
+    "question",
+    "is_binary",
+    "yes_token_id",
+    "market_family",
+    "asset",
+    "threshold",
+    "direction",
+    "target_date",
+    "is_core",
+    "is_satellite",
+    "selection_reason",
+    "exclusion_reason",
+]
+
 
 def read_parquet(root: Path, path: str) -> pd.DataFrame:
     p = Path(path)
@@ -71,13 +98,99 @@ def duplicate_count(prices: pd.DataFrame) -> int:
     return int(prices.duplicated(subset=present).sum()) if present else 0
 
 
+def is_utc_timestamp(series: pd.Series) -> bool:
+    try:
+        converted = pd.to_datetime(series, utc=False)
+    except Exception:
+        return False
+    tz = getattr(converted.dt, "tz", None)
+    return str(tz) == "UTC"
+
+
+def raw_payload_inventory(raw_dir: Path) -> list[dict[str, object]]:
+    files = sorted(raw_dir.glob("data_api_trades_*.jsonl"))
+    inventory = []
+    for path in files:
+        stat = path.stat()
+        inventory.append(
+            {
+                "file": str(path.relative_to(path.parents[1])),
+                "size_bytes": stat.st_size,
+                "modified_at": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+            }
+        )
+    return inventory
+
+
+def active_window_violations(active_panel: pd.DataFrame, prices: pd.DataFrame, universe: pd.DataFrame) -> list[dict[str, object]]:
+    if active_panel.empty:
+        return []
+    first_trade = prices.groupby("market_id")["timestamp"].min()
+    market_index = universe.set_index("market_id")
+    violations: list[dict[str, object]] = []
+    for market_id in active_panel.columns:
+        observed = active_panel.index[active_panel[market_id].notna()]
+        if len(observed) == 0 or market_id not in market_index.index:
+            continue
+        row = market_index.loc[market_id]
+        start_candidates = []
+        if market_id in first_trade.index and pd.notna(first_trade.loc[market_id]):
+            start_candidates.append(first_trade.loc[market_id].floor("h"))
+        for col in ["start_date"]:
+            value = row.get(col)
+            if pd.notna(value):
+                start_candidates.append(pd.to_datetime(value, utc=True).floor("h"))
+        end_candidates = []
+        for col in ["close_date", "end_date"]:
+            value = row.get(col)
+            if pd.notna(value):
+                end_candidates.append(pd.to_datetime(value, utc=True).ceil("h"))
+                break
+        active_start = max(start_candidates) if start_candidates else None
+        active_end = end_candidates[0] if end_candidates else None
+        if active_start is not None and observed.min() < active_start:
+            violations.append({"market_id": market_id, "violation": "value_before_active_start", "timestamp": str(observed.min())})
+        if active_end is not None and observed.max() > active_end:
+            violations.append({"market_id": market_id, "violation": "value_after_active_end", "timestamp": str(observed.max())})
+    return violations
+
+
+def max_staleness_hours(active_panel: pd.DataFrame, raw_panel: pd.DataFrame) -> float | None:
+    if active_panel.empty or raw_panel.empty:
+        return None
+    max_gap = 0.0
+    for market_id in active_panel.columns:
+        if market_id not in raw_panel.columns:
+            continue
+        raw_observed = raw_panel.index[raw_panel[market_id].notna()]
+        active_observed = active_panel.index[active_panel[market_id].notna()]
+        if len(raw_observed) == 0 or len(active_observed) == 0:
+            continue
+        raw_series = pd.Series(raw_observed, index=raw_observed)
+        last_raw = raw_series.reindex(active_observed, method="ffill")
+        gaps = (active_observed.to_series(index=active_observed) - last_raw).dt.total_seconds() / 3600
+        if len(gaps):
+            max_gap = max(max_gap, float(gaps.max()))
+    return max_gap
+
+
 def validate(root: Path, processed_dir: Path) -> dict[str, object]:
     universe = read_parquet(root, str(processed_dir / "market_universe.parquet"))
     prices = read_parquet(root, str(processed_dir / "prices_long.parquet"))
+    raw = read_parquet(root, str(processed_dir / "panel_hourly_raw.parquet"))
+    active = read_parquet(root, str(processed_dir / "panel_hourly_active_ffill.parquet"))
     primary = read_parquet(root, str(processed_dir / "panel_hourly_core.parquet"))
     core_plus = read_parquet(root, str(processed_dir / "panel_hourly_core_plus_satellites.parquet"))
 
+    universe["market_id"] = universe["market_id"].astype(str)
     prices["timestamp"] = pd.to_datetime(prices["timestamp"], utc=True)
+    prices["market_id"] = prices["market_id"].astype(str)
+    for panel in [raw, active, primary, core_plus]:
+        panel.index = pd.to_datetime(panel.index, utc=True)
+        panel.columns = panel.columns.astype(str)
+    for col in ["start_date", "close_date", "end_date"]:
+        if col in universe.columns:
+            universe[col] = pd.to_datetime(universe[col], utc=True, errors="coerce")
     selected = universe[universe["is_core"].fillna(False) | universe["is_satellite"].fillna(False)].copy()
     core = universe[universe["is_core"].fillna(False)].copy()
 
@@ -95,6 +208,15 @@ def validate(root: Path, processed_dir: Path) -> dict[str, object]:
     markets_at_max_points = int((per_market_points == max_points_per_market).sum()) if len(per_market_points) else 0
     unresolved_selected = int(selected["resolved_outcome"].isna().sum()) if "resolved_outcome" in selected.columns else len(selected)
     non_binary_selected = int((~selected["is_binary"].fillna(False)).sum()) if "is_binary" in selected.columns else len(selected)
+    missing_price_columns = [col for col in REQUIRED_PRICE_COLUMNS if col not in prices.columns]
+    missing_universe_columns = [col for col in REQUIRED_UNIVERSE_COLUMNS if col not in universe.columns]
+    required_price_nulls = {
+        col: int(prices[col].isna().sum())
+        for col in ["timestamp", "market_id", "token_id", "yes_price"]
+        if col in prices.columns
+    }
+    active_violations = active_window_violations(active, prices, universe)
+    max_stale_hours = max_staleness_hours(active, raw)
     excluded_without_reason = int(
         universe[
             ~(universe["is_core"].fillna(False) | universe["is_satellite"].fillna(False))
@@ -109,7 +231,11 @@ def validate(root: Path, processed_dir: Path) -> dict[str, object]:
         "max_primary_missingness": primary_missingness <= QUALITY_GATES["max_primary_missingness"],
         "no_unresolved_selected": unresolved_selected == 0,
         "no_non_binary_selected": non_binary_selected == 0,
+        "required_columns_present": not missing_price_columns and not missing_universe_columns,
+        "required_nulls_absent": all(count == 0 for count in required_price_nulls.values()),
+        "timestamps_utc": is_utc_timestamp(prices["timestamp"]),
         "price_bounds": bool(prices["yes_price"].between(0, 1).all()) if len(prices) else False,
+        "active_window_respected": len(active_violations) == 0,
         "excluded_reasons_complete": excluded_without_reason == 0,
         "core_and_satellite_panels_exist": (processed_dir / "panel_hourly_core.parquet").exists()
         and (processed_dir / "panel_hourly_core_plus_satellites.parquet").exists(),
@@ -130,6 +256,7 @@ def validate(root: Path, processed_dir: Path) -> dict[str, object]:
             "unresolved_selected": unresolved_selected,
             "non_binary_selected": non_binary_selected,
             "excluded_without_reason": excluded_without_reason,
+            "active_window_violations": len(active_violations),
         },
         "coverage": {
             "timestamp_min": str(prices["timestamp"].min()) if len(prices) else None,
@@ -142,6 +269,18 @@ def validate(root: Path, processed_dir: Path) -> dict[str, object]:
             "median_active_core_markets": median_active_core,
             "max_points_per_market": max_points_per_market,
             "markets_at_max_points": markets_at_max_points,
+            "max_active_ffill_staleness_hours": max_stale_hours,
+        },
+        "schema": {
+            "missing_price_columns": missing_price_columns,
+            "missing_universe_columns": missing_universe_columns,
+            "required_price_nulls": required_price_nulls,
+            "prices_timestamp_dtype": str(prices["timestamp"].dtype),
+            "panel_timestamp_dtype": str(active.index.dtype),
+        },
+        "active_window_sample_violations": active_violations[:20],
+        "raw_payloads": {
+            "data_api_trades": raw_payload_inventory(root / "data" / "raw"),
         },
         "market_counts_by_family": selected["market_family"].fillna("unknown").value_counts().to_dict(),
         "limitations": [],
@@ -168,11 +307,12 @@ def validate(root: Path, processed_dir: Path) -> dict[str, object]:
                 "endpoint": "data-api.polymarket.com/trades",
                 "observed_per_market_cap": max_points_per_market,
                 "markets_at_observed_cap": markets_at_max_points,
-                "note": "Current processed data was fetched with a practical cap after public pagination began returning 400 responses at deeper offsets for high-volume markets.",
+                "note": "Public pagination returned a max historical activity offset error beyond offset 3000 for high-volume markets; page_size=1000 yields up to 4000 trades per market.",
             },
             "quality_gates": QUALITY_GATES,
         },
         "selected_market_ids": selected["market_id"].astype(str).tolist(),
+        "raw_payloads": report["raw_payloads"],
         "validation_status": report["analysis_ready"],
     }
     with (processed_dir / "dataset_manifest.json").open("w", encoding="utf-8") as handle:

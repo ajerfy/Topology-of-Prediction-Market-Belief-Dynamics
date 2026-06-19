@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-18T23:56:54.271739+00:00",
+  "generated_at": "2026-06-19T00:10:46.422059+00:00",
   "api_sources": [
     "gamma-api.polymarket.com",
     "data-api.polymarket.com"
@@ -9,9 +9,9 @@
     "fill_policy": "active_window_forward_fill",
     "trade_fetch": {
       "endpoint": "data-api.polymarket.com/trades",
-      "observed_per_market_cap": 3500,
-      "markets_at_observed_cap": 239,
-      "note": "Current processed data was fetched with a practical cap after public pagination began returning 400 responses at deeper offsets for high-volume markets."
+      "observed_per_market_cap": 4000,
+      "markets_at_observed_cap": 238,
+      "note": "Public pagination returned a max historical activity offset error beyond offset 3000 for high-volume markets; page_size=1000 yields up to 4000 trades per market."
     },
     "quality_gates": {
       "min_core_markets": 20,
@@ -275,5 +275,29 @@
     "618972",
     "549517"
   ],
+  "raw_payloads": {
+    "data_api_trades": [
+      {
+        "file": "raw/data_api_trades_20260618T223043Z.jsonl",
+        "size_bytes": 32989837,
+        "modified_at": "2026-06-18T22:31:15.947639+00:00"
+      },
+      {
+        "file": "raw/data_api_trades_20260618T232235Z.jsonl",
+        "size_bytes": 39168142,
+        "modified_at": "2026-06-18T23:25:15.491478+00:00"
+      },
+      {
+        "file": "raw/data_api_trades_20260618T232531Z.jsonl",
+        "size_bytes": 719566177,
+        "modified_at": "2026-06-18T23:51:43.973975+00:00"
+      },
+      {
+        "file": "raw/data_api_trades_20260619T000230Z.jsonl",
+        "size_bytes": 818790763,
+        "modified_at": "2026-06-19T00:10:25.621530+00:00"
+      }
+    ]
+  },
   "validation_status": false
 }

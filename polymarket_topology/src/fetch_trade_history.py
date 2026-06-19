@@ -172,7 +172,7 @@ def main() -> None:
     parser.add_argument("--input", default="data/processed/market_universe.parquet")
     parser.add_argument("--output", default="data/processed/prices_long.parquet")
     parser.add_argument("--limit", type=int, default=None, help="Maximum markets to scan.")
-    parser.add_argument("--page-size", type=int, default=500)
+    parser.add_argument("--page-size", type=int, default=1000)
     parser.add_argument("--max-trades-per-market", type=int, default=50000)
     parser.add_argument("--min-volume-clob", type=float, default=0.0)
     parser.add_argument(

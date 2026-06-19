@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-06-18T23:56:54.271739+00:00",
+  "generated_at": "2026-06-19T00:10:46.422059+00:00",
   "analysis_ready": false,
   "quality_gates": {
     "min_core_markets": true,
@@ -9,7 +9,11 @@
     "max_primary_missingness": true,
     "no_unresolved_selected": true,
     "no_non_binary_selected": true,
+    "required_columns_present": true,
+    "required_nulls_absent": true,
+    "timestamps_utc": true,
     "price_bounds": true,
+    "active_window_respected": true,
     "excluded_reasons_complete": true,
     "core_and_satellite_panels_exist": true
   },
@@ -25,30 +29,69 @@
     "selected_markets": 252,
     "core_markets": 141,
     "satellite_markets": 111,
-    "price_rows": 862924,
+    "price_rows": 982176,
     "price_markets": 252,
     "duplicate_rows": 0,
     "unresolved_selected": 0,
     "non_binary_selected": 0,
-    "excluded_without_reason": 0
+    "excluded_without_reason": 0,
+    "active_window_violations": 0
   },
   "coverage": {
-    "timestamp_min": "2024-01-05 10:24:56+00:00",
+    "timestamp_min": "2024-01-03 15:32:01+00:00",
     "timestamp_max": "2026-06-17 21:12:58+00:00",
-    "raw_trade_calendar_days": 894.4500231481481,
-    "primary_usable_days": 10.958333333333334,
+    "raw_trade_calendar_days": 896.2367708333334,
+    "primary_usable_days": 12.791666666666666,
     "primary_panel_shape": [
-      263,
+      307,
       23
     ],
     "core_plus_panel_shape": [
-      263,
+      307,
       37
     ],
-    "primary_missingness": 0.12564060175235575,
-    "median_active_core_markets": 22.0,
-    "max_points_per_market": 3500,
-    "markets_at_max_points": 239
+    "primary_missingness": 0.1346834725959496,
+    "median_active_core_markets": 21.0,
+    "max_points_per_market": 4000,
+    "markets_at_max_points": 238,
+    "max_active_ffill_staleness_hours": 288.0
+  },
+  "schema": {
+    "missing_price_columns": [],
+    "missing_universe_columns": [],
+    "required_price_nulls": {
+      "timestamp": 0,
+      "market_id": 0,
+      "token_id": 0,
+      "yes_price": 0
+    },
+    "prices_timestamp_dtype": "datetime64[ns, UTC]",
+    "panel_timestamp_dtype": "datetime64[ns, UTC]"
+  },
+  "active_window_sample_violations": [],
+  "raw_payloads": {
+    "data_api_trades": [
+      {
+        "file": "raw/data_api_trades_20260618T223043Z.jsonl",
+        "size_bytes": 32989837,
+        "modified_at": "2026-06-18T22:31:15.947639+00:00"
+      },
+      {
+        "file": "raw/data_api_trades_20260618T232235Z.jsonl",
+        "size_bytes": 39168142,
+        "modified_at": "2026-06-18T23:25:15.491478+00:00"
+      },
+      {
+        "file": "raw/data_api_trades_20260618T232531Z.jsonl",
+        "size_bytes": 719566177,
+        "modified_at": "2026-06-18T23:51:43.973975+00:00"
+      },
+      {
+        "file": "raw/data_api_trades_20260619T000230Z.jsonl",
+        "size_bytes": 818790763,
+        "modified_at": "2026-06-19T00:10:25.621530+00:00"
+      }
+    ]
   },
   "market_counts_by_family": {
     "btc_price": 118,
@@ -60,6 +103,6 @@
   "limitations": [
     "One or more strict quality gates failed; inspect quality_gates and coverage outputs.",
     "The raw trades span more calendar time than the strict hourly panel because simultaneous active BTC/ETH coverage is sparse under the current public trade-history pull.",
-    "239 markets hit the observed per-market trade fetch cap of 3500; deeper historical pagination or an archival source is needed for lifetime histories."
+    "238 markets hit the observed per-market trade fetch cap of 4000; deeper historical pagination or an archival source is needed for lifetime histories."
   ]
 }
