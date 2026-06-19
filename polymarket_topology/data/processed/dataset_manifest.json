@@ -1,17 +1,24 @@
 {
-  "generated_at": "2026-06-19T00:10:46.422059+00:00",
+  "generated_at": "2026-06-19T00:25:02.478188+00:00",
   "api_sources": [
     "gamma-api.polymarket.com",
-    "data-api.polymarket.com"
+    "data-api.polymarket.com",
+    "clob.polymarket.com"
   ],
   "parameters": {
     "frequency": "1h",
     "fill_policy": "active_window_forward_fill",
     "trade_fetch": {
       "endpoint": "data-api.polymarket.com/trades",
-      "observed_per_market_cap": 4000,
-      "markets_at_observed_cap": 238,
+      "observed_per_market_cap": 12860,
+      "markets_at_observed_cap": 1,
       "note": "Public pagination returned a max historical activity offset error beyond offset 3000 for high-volume markets; page_size=1000 yields up to 4000 trades per market."
+    },
+    "clob_history_fetch": {
+      "endpoint": "clob.polymarket.com/prices-history",
+      "chunk_days": 14,
+      "fidelity_minutes": 60,
+      "note": "CLOB history is fetched with explicit startTs/endTs windows because broad interval=max/all requests can return empty histories or interval-too-long errors for closed markets."
     },
     "quality_gates": {
       "min_core_markets": 20,
@@ -275,6 +282,10 @@
     "618972",
     "549517"
   ],
+  "source_counts": {
+    "data_api_trades": 982176,
+    "clob_prices_history": 612968
+  },
   "raw_payloads": {
     "data_api_trades": [
       {
@@ -297,7 +308,19 @@
         "size_bytes": 818790763,
         "modified_at": "2026-06-19T00:10:25.621530+00:00"
       }
+    ],
+    "clob_price_history": [
+      {
+        "file": "raw/clob_price_history_20260618T221040Z.jsonl",
+        "size_bytes": 416240,
+        "modified_at": "2026-06-18T22:11:08.539448+00:00"
+      },
+      {
+        "file": "raw/clob_price_history_20260619T001525Z.jsonl",
+        "size_bytes": 19750464,
+        "modified_at": "2026-06-19T00:21:40.673506+00:00"
+      }
     ]
   },
-  "validation_status": false
+  "validation_status": true
 }

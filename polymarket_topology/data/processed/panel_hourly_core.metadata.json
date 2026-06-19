@@ -1,12 +1,12 @@
 {
   "frequency": "1h",
   "fill_policy": "strict_active_ffill_core_limit_unlimited",
-  "timestamp_count": 307,
-  "market_count": 23,
-  "missingness": 0.1346834725959496,
-  "timestamp_min": "2025-12-19 14:00:00+00:00",
+  "timestamp_count": 5696,
+  "market_count": 21,
+  "missingness": 0.19187232477260568,
+  "timestamp_min": "2024-12-30 23:00:00+00:00",
   "timestamp_max": "2026-01-01 08:00:00+00:00",
-  "active_market_min": 15,
-  "active_market_median": 21.0,
-  "active_market_max": 23
+  "active_market_min": 16,
+  "active_market_median": 17.0,
+  "active_market_max": 17
 }

@@ -4,3 +4,4 @@ __pycache__/
 .ipynb_checkpoints/
 .DS_Store
 data/raw/data_api_trades_*.jsonl
+data/raw/clob_price_history_*.jsonl

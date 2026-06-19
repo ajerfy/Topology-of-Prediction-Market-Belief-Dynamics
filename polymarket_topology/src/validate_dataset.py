@@ -107,8 +107,8 @@ def is_utc_timestamp(series: pd.Series) -> bool:
     return str(tz) == "UTC"
 
 
-def raw_payload_inventory(raw_dir: Path) -> list[dict[str, object]]:
-    files = sorted(raw_dir.glob("data_api_trades_*.jsonl"))
+def raw_payload_inventory(raw_dir: Path, pattern: str) -> list[dict[str, object]]:
+    files = sorted(raw_dir.glob(pattern))
     inventory = []
     for path in files:
         stat = path.stat()
@@ -279,8 +279,10 @@ def validate(root: Path, processed_dir: Path) -> dict[str, object]:
             "panel_timestamp_dtype": str(active.index.dtype),
         },
         "active_window_sample_violations": active_violations[:20],
+        "source_counts": prices["source"].fillna("unknown").value_counts().to_dict() if "source" in prices.columns else {},
         "raw_payloads": {
-            "data_api_trades": raw_payload_inventory(root / "data" / "raw"),
+            "data_api_trades": raw_payload_inventory(root / "data" / "raw", "data_api_trades_*.jsonl"),
+            "clob_price_history": raw_payload_inventory(root / "data" / "raw", "clob_price_history_*.jsonl"),
         },
         "market_counts_by_family": selected["market_family"].fillna("unknown").value_counts().to_dict(),
         "limitations": [],
@@ -299,7 +301,7 @@ def validate(root: Path, processed_dir: Path) -> dict[str, object]:
         json.dump(report, handle, indent=2)
     manifest = {
         "generated_at": report["generated_at"],
-        "api_sources": ["gamma-api.polymarket.com", "data-api.polymarket.com"],
+        "api_sources": ["gamma-api.polymarket.com", "data-api.polymarket.com", "clob.polymarket.com"],
         "parameters": {
             "frequency": "1h",
             "fill_policy": "active_window_forward_fill",
@@ -309,9 +311,16 @@ def validate(root: Path, processed_dir: Path) -> dict[str, object]:
                 "markets_at_observed_cap": markets_at_max_points,
                 "note": "Public pagination returned a max historical activity offset error beyond offset 3000 for high-volume markets; page_size=1000 yields up to 4000 trades per market.",
             },
+            "clob_history_fetch": {
+                "endpoint": "clob.polymarket.com/prices-history",
+                "chunk_days": 14,
+                "fidelity_minutes": 60,
+                "note": "CLOB history is fetched with explicit startTs/endTs windows because broad interval=max/all requests can return empty histories or interval-too-long errors for closed markets.",
+            },
             "quality_gates": QUALITY_GATES,
         },
         "selected_market_ids": selected["market_id"].astype(str).tolist(),
+        "source_counts": report["source_counts"],
         "raw_payloads": report["raw_payloads"],
         "validation_status": report["analysis_ready"],
     }

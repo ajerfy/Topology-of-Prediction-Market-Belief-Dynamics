@@ -11,6 +11,8 @@ This repository starts with a reproducible Polymarket data pipeline. The current
 - `data/processed/market_universe.parquet`: crypto taxonomy over the metadata universe, including core BTC/ETH price-threshold markets and satellite policy/ETF/MicroStrategy markets.
 - `data/processed/selected_markets.csv`: selected core and satellite markets with taxonomy fields.
 - `data/processed/excluded_markets.csv`: excluded crypto candidates with exclusion reasons.
+- `data/processed/trade_prices_long.parquet`: trade-derived YES-token prices from the Data API.
+- `data/processed/clob_price_history_long.parquet`: hourly sampled YES-token prices from CLOB `prices-history`.
 - `data/processed/prices_long.parquet`: cleaned YES-token history with columns:
   - `timestamp`
   - `market_id`
@@ -52,17 +54,26 @@ python src/fetch_markets.py --limit 5000 --closed true --order volumeNum --ascen
 python src/select_markets.py
 python src/fetch_trade_history.py \
   --input data/processed/market_universe.parquet \
-  --output data/processed/prices_long.parquet \
+  --output data/processed/trade_prices_long.parquet \
   --page-size 1000 \
   --max-trades-per-market 4000
+python src/fetch_price_history.py \
+  --input data/processed/market_universe.parquet \
+  --output data/processed/clob_price_history_long.parquet \
+  --chunk-days 14 \
+  --fidelity 60
+python src/merge_price_sources.py \
+  --trade-input data/processed/trade_prices_long.parquet \
+  --clob-input data/processed/clob_price_history_long.parquet \
+  --output data/processed/prices_long.parquet
 python src/build_market_panel.py --freq 1h
 python src/validate_dataset.py
 python src/stress_test_dataset.py
 ```
 
-The public Data API currently returns enough data to build and audit the selected universe, but high-volume markets hit a practical pagination depth ceiling. Direct probing showed `{"error":"max historical activity offset of 3000 exceeded"}` beyond `offset=3000`; using `--page-size 1000` gives up to 4,000 trades per market. The script default remains higher for future API improvements, but this committed dataset was pulled with `--max-trades-per-market 4000`.
+The public Data API is useful for executed trades, but high-volume markets hit a practical pagination depth ceiling. Direct probing showed `{"error":"max historical activity offset of 3000 exceeded"}` beyond `offset=3000`; using `--page-size 1000` gives up to 4,000 trades per market. To recover longer time coverage, the pipeline also fetches CLOB `prices-history` in explicit 14-day `startTs`/`endTs` windows. Broad CLOB requests such as `interval=max` or `interval=all` can return empty histories or interval-too-long errors for closed markets, so bounded windows are required.
 
-Large raw trade JSONL files are written under `data/raw/` locally for auditability. Full raw trade payloads can exceed GitHub's normal file-size limit, so the processed Parquet files and validation artifacts are the committed reproducible dataset unless Git LFS or external object storage is added.
+Large raw JSONL files are written under `data/raw/` locally for auditability. Full raw payloads can exceed GitHub's normal file-size limit, so the processed Parquet files and validation artifacts are the committed reproducible dataset unless Git LFS or external object storage is added.
 
 ## Legacy/Smoke-Test Commands
 
@@ -72,10 +83,10 @@ Fetch a smaller high-volume metadata sample:
 python src/fetch_markets.py --limit 1000 --closed true
 ```
 
-Fetch historical YES-token prices from the CLOB price-history endpoint. This endpoint is useful for recent chart history, but its public interval filters are short horizon (`1h`, `6h`, `1d`, `1w`, `1m`) and often empty for older or inactive markets:
+Fetch a smaller historical YES-token price sample from the CLOB price-history endpoint:
 
 ```bash
-python src/fetch_price_history.py --input data/processed/markets.parquet --limit 250
+python src/fetch_price_history.py --input data/processed/markets.parquet --limit 250 --output data/processed/clob_price_history_long.parquet
 ```
 
 Fetch trade-derived probabilities for a smaller exploratory subset:
@@ -136,18 +147,18 @@ It checks:
 
 ## Current Dataset Status
 
-As of the latest committed validation run, the dataset is useful for pipeline development and market-universe inspection, but it is **not yet analysis-ready** for the full paper. It passes schema, binary/resolved-market, price-bound, duplicate, minimum-market-count, minimum-points-per-market, median-active-core, and missingness gates. It fails the 180-day strict hourly coverage gate.
+As of the latest committed validation run, the dataset is **analysis-ready under the current quality gates**. It passes schema, binary/resolved-market, price-bound, duplicate, minimum-market-count, minimum-points-per-market, 180-day usable coverage, median-active-core, active-window, and missingness gates.
 
 Current key counts:
 
 - Selected markets: 252.
 - Core BTC/ETH price-threshold markets: 141.
 - Satellite crypto policy/ETF/MicroStrategy markets: 111.
-- Trade-derived price rows: generated by `fetch_trade_history.py` from the selected market universe.
-- Raw observed trade span: 2024-01-05 to 2026-06-17 UTC.
+- Combined price rows: generated by merging Data API trade rows and CLOB sampled history rows.
+- Raw observed span: recorded in `data/processed/validation_report.json`.
 - Strict primary core panel, strict core-plus-satellite panel, missingness, and usable-day counts are recorded in `data/processed/validation_report.json`.
 
-The main blocker is data depth, not code structure: most selected markets hit the observed public trade-history cap, so older lifetime histories are truncated for many high-volume markets. To reach a statistically strong 180+ day market-state panel, the next step is a deeper archival source, Git LFS/object storage for raw pulls, or a Polymarket endpoint/export that supports deeper historical pagination.
+Remaining limitations are methodological rather than gate failures: the primary panel is built from a merge of executed trades and hourly CLOB sampled histories, CLOB histories are sampled rather than every trade, and raw JSONL payloads are intentionally local/regenerable unless Git LFS or external object storage is added.
 
 ## Notes On API Fields
 
@@ -155,4 +166,4 @@ Polymarket Gamma fields are not fully consistent across market vintages. The par
 
 The initial cleaned metadata keeps only binary Yes/No markets with a YES CLOB token ID. Resolved outcome is inferred from final `outcomePrices` when one outcome is at least `0.99`; the raw resolution metadata is retained where available.
 
-For statistically meaningful topology experiments, do not rely on the small committed smoke-test sample alone. Pull a longer trade-derived panel across many closed markets and report coverage before modeling: number of markets, number of markets with usable histories, timestamp span, category/event mix, panel missingness, and per-market observation counts.
+For topology experiments, use the validation report and manifest to cite the exact market universe, source mix, timestamp span, panel shape, missingness, and quality-gate status before modeling.

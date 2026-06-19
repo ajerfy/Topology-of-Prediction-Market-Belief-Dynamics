@@ -85,23 +85,45 @@ def panel_metadata(panel: pd.DataFrame, freq: str, fill_policy: str) -> dict[str
     }
 
 
-def strict_panel(panel: pd.DataFrame, *, min_active: int, max_missingness: float) -> pd.DataFrame:
+def strict_panel(
+    panel: pd.DataFrame,
+    *,
+    min_active: int,
+    min_markets: int,
+    max_missingness: float,
+) -> pd.DataFrame:
     if panel.empty:
         return panel
     rows = panel.notna().sum(axis=1) >= min_active
     subset = panel.loc[rows].copy()
     if subset.empty:
         return subset
-    coverage = subset.notna().mean(axis=0)
-    best = subset
-    for threshold in [0.05, 0.10, 0.20, 0.30, 0.50, 0.70, 0.80, 0.90, 1.0]:
-        cols = coverage[coverage >= threshold].index
-        if len(cols) < min_active:
-            continue
+    ordered_cols = subset.notna().mean(axis=0).sort_values(ascending=False).index.tolist()
+    best = pd.DataFrame(index=subset.index)
+    for market_count in range(min_markets, len(ordered_cols) + 1):
+        cols = ordered_cols[:market_count]
         candidate = subset[cols]
+        candidate = candidate.loc[candidate.notna().sum(axis=1) >= min_active]
+        if candidate.empty:
+            continue
+        if (
+            candidate.isna().mean().mean() <= max_missingness
+            and candidate.notna().sum(axis=1).median() >= min_active
+        ):
+            best = candidate
+    return best if not best.empty else subset[ordered_cols[:min_markets]]
+
+
+def add_optional_columns(base: pd.DataFrame, optional: pd.DataFrame, *, max_missingness: float) -> pd.DataFrame:
+    if base.empty or optional.empty:
+        return base
+    optional = optional.reindex(base.index)
+    ordered_cols = optional.notna().mean(axis=0).sort_values(ascending=False).index.tolist()
+    best = base.copy()
+    for col in ordered_cols:
+        candidate = best.join(optional[[col]])
         if candidate.isna().mean().mean() <= max_missingness:
             best = candidate
-            break
     return best
 
 
@@ -124,6 +146,7 @@ def main() -> None:
     parser.add_argument("--output-dir", default="data/processed")
     parser.add_argument("--fill-limit-hours", type=int, default=None)
     parser.add_argument("--min-active-core", type=int, default=15)
+    parser.add_argument("--min-core-markets", type=int, default=20)
     parser.add_argument("--max-primary-missingness", type=float, default=0.20)
     parser.add_argument("--log-level", default="INFO")
     args = parser.parse_args()
@@ -156,12 +179,13 @@ def main() -> None:
     strict_core = strict_panel(
         core_panel,
         min_active=args.min_active_core,
+        min_markets=args.min_core_markets,
         max_missingness=args.max_primary_missingness,
     )
-    strict_core_plus = core_plus_panel.reindex(strict_core.index)
-    strict_core_plus = strict_panel(
-        strict_core_plus,
-        min_active=args.min_active_core,
+    satellite_cols = [col for col in core_plus_panel.columns if col not in strict_core.columns]
+    strict_core_plus = add_optional_columns(
+        strict_core,
+        core_plus_panel[satellite_cols] if satellite_cols else pd.DataFrame(index=strict_core.index),
         max_missingness=args.max_primary_missingness,
     )
 
