@@ -1,0 +1,5 @@
+universe,market_count,yes_rate,no_rate,class_entropy,panel_missingness,median_active_markets,mean_active_markets,mean_pairwise_overlap,median_pairwise_overlap,min_pairwise_overlap,max_pairwise_overlap,mean_abs_pairwise_corr,median_abs_pairwise_corr,pc_85,pc_90,pc_95,pc1_variance,pc2_cumulative_variance,pc5_cumulative_variance
+Universe B,171,0.1111111111111111,0.8888888888888888,0.5032583347756457,0.7845107676085493,34.0,38.57038163716814,0.010706145608946494,0.0,0.0,0.1949685534591195,0.4159760703510543,0.37913909904792975,40.0,49.0,64.0,0.09032188720518489,0.15639985409235313,0.30263962234396696
+Universe B-25,0,,,0.0,,0.0,0.0,,,,,,,,,,,,
+Universe B-40,0,,,0.0,,0.0,0.0,,,,,,,,,,,,
+Universe B-50,0,,,0.0,,0.0,0.0,,,,,,,,,,,,
