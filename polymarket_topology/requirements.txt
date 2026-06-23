@@ -4,3 +4,5 @@ pyarrow>=16.0
 matplotlib>=3.8
 notebook>=7.0
 scikit-learn>=1.5
+ripser>=0.6
+persim>=0.3
