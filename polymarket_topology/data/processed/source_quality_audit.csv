@@ -1,0 +1,2 @@
+market_id,question,slug,broad_domain,broad_family,source_quality_reason,resolved_outcome,volume,start_date,end_date,close_date
+506006,Global heat increase between 1.22°C and 1.24°C for 2024?,global-heat-increase-between-1pt22c-and-1pt24c-for-2024,weather,weather,external_weather_source_dependency,No,9466873.29085309,2024-08-28 20:33:06.236000+00:00,2024-12-31 12:00:00+00:00,2025-01-10 19:37:21+00:00

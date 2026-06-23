@@ -36,7 +36,7 @@ The best universe is the one that most improves label variation without destroyi
 | crypto_btc | crypto | 124 | 118 | 0.169 | 0.656 | 7903999.114 | 0.497 |
 | policy_other | policy_other | 16 | 0 | 0.625 | 0.954 | 17275288.497 | 0.417 |
 | crypto_other | crypto | 7 | 0 | 0.429 | 0.985 | 6794262.976 | 0.411 |
-| elections | elections | 855 | 0 | 0.226 | 0.770 | 17949783.645 | 0.381 |
+| elections | elections | 854 | 0 | 0.226 | 0.771 | 17959716.795 | 0.382 |
 | macro_growth_policy | macro | 3 | 0 | 0.333 | 0.918 | 9213351.671 | 0.379 |
 | other | other | 349 | 0 | 0.327 | 0.911 | 15359784.705 | 0.369 |
 | sports | sports | 234 | 0 | 0.047 | 0.274 | 28661654.642 | 0.311 |
@@ -45,6 +45,7 @@ The best universe is the one that most improves label variation without destroyi
 | crypto_etf | crypto | 2 | 2 | 1.000 | 0.000 | 12924465.375 | 0.190 |
 | crypto_regulation | crypto | 1 | 1 | 0.000 | 0.000 | 7603059.085 | 0.126 |
 | crypto_stablecoin | crypto | 1 | 0 | 0.000 | 0.000 | 6194780.658 | 0.100 |
+| weather | weather | 1 | 0 | 0.000 | 0.000 | 9466873.291 | 0.084 |
 
 ## Answer To The Research-Design Question
 

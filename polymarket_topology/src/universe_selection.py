@@ -98,9 +98,32 @@ def contains(text: str, pattern: str) -> bool:
     return bool(re.search(pattern, text, flags=re.I))
 
 
+WEATHER_SOURCE_PATTERN = (
+    r"\b(wunderground|national weather service|\bnws\b|daily climate report|"
+    r"\bcli(?:nyc|sfo|mia|mdw|lax)?\b|knyc|klga|ksfo|kmia|kmdw|klax)\b"
+)
+WEATHER_MARKET_TITLE_PATTERN = (
+    r"\b(highest temperature|lowest temperature|temperature in|global heat|"
+    r"weather protocol|snowfall|rainfall|hurricane)\b"
+)
+
+
+def classify_source_quality(row: pd.Series) -> tuple[bool, str | None]:
+    text = row_text(row)
+    title = row_title_text(row)
+    if contains(text, r"\b(source degraded|degraded source|data source degraded)\b"):
+        return True, "explicit_source_degraded_notice"
+    if contains(text, WEATHER_SOURCE_PATTERN) or contains(title, WEATHER_MARKET_TITLE_PATTERN):
+        return True, "external_weather_source_dependency"
+    return False, None
+
+
 def classify_domain_family(row: pd.Series) -> tuple[str, str]:
     text = row_text(row)
     title = row_title_text(row)
+
+    if contains(text, WEATHER_SOURCE_PATTERN) or contains(title, WEATHER_MARKET_TITLE_PATTERN):
+        return "weather", "weather"
 
     crypto_asset = contains(
         text,
@@ -163,6 +186,9 @@ def load_markets(path: Path) -> pd.DataFrame:
     classified = markets.apply(classify_domain_family, axis=1, result_type="expand")
     markets["broad_domain"] = classified[0]
     markets["broad_family"] = classified[1]
+    quality = markets.apply(classify_source_quality, axis=1, result_type="expand")
+    markets["exclude_source_quality"] = quality[0].astype(bool)
+    markets["source_quality_reason"] = quality[1]
     return markets
 
 
@@ -198,6 +224,7 @@ def family_audit(markets: pd.DataFrame) -> pd.DataFrame:
                 "avg_volume": safe_mean(group["volume"]),
                 "avg_liquidity": safe_mean(group["liquidity"]),
                 "panel_ready_markets": int(group["in_price_panel"].sum()),
+                "source_quality_exclusions": int(group.get("exclude_source_quality", pd.Series(False, index=group.index)).sum()),
             }
         )
     audit = pd.DataFrame(rows)
@@ -223,10 +250,11 @@ def family_audit(markets: pd.DataFrame) -> pd.DataFrame:
 
 def candidate_mask(markets: pd.DataFrame, spec: CandidateSpec) -> pd.Series:
     domain_match = markets["broad_domain"].isin(spec.domains)
+    source_quality_ok = ~markets.get("exclude_source_quality", pd.Series(False, index=markets.index)).fillna(False)
     if spec.family_patterns:
         family_match = markets["broad_family"].isin(spec.family_patterns)
-        return domain_match & family_match
-    return domain_match
+        return domain_match & family_match & source_quality_ok
+    return domain_match & source_quality_ok
 
 
 def pca_metrics(panel: pd.DataFrame) -> dict[str, float | int]:
@@ -504,8 +532,26 @@ def main() -> None:
 
     candidate_summary = normalize_scores(pd.DataFrame(candidate_rows))
     candidate_members = pd.concat(member_rows, ignore_index=True) if member_rows else pd.DataFrame()
+    source_quality_audit = markets[markets["exclude_source_quality"]].copy()
 
     audit.to_csv(output_dir / "market_family_audit.csv", index=False)
+    source_quality_cols = [
+        "market_id",
+        "question",
+        "slug",
+        "broad_domain",
+        "broad_family",
+        "source_quality_reason",
+        "resolved_outcome",
+        "volume",
+        "start_date",
+        "end_date",
+        "close_date",
+    ]
+    source_quality_audit[[col for col in source_quality_cols if col in source_quality_audit.columns]].to_csv(
+        output_dir / "source_quality_audit.csv",
+        index=False,
+    )
     candidate_summary.to_csv(output_dir / "candidate_universe_summary.csv", index=False)
     candidate_members.to_parquet(output_dir / "candidate_universe_markets.parquet", index=False)
     candidate_members.to_csv(output_dir / "candidate_universe_markets.csv", index=False)
