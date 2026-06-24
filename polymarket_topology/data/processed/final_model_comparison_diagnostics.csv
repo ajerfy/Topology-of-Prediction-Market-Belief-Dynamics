@@ -1,0 +1,18 @@
+fold,diagnostic,used_test_timestamps,n_usable_markets,source_start,source_end
+1,locked_neighborhood_source,False,96,2024-08-06 17:00:00+00:00,2025-08-03 06:00:00+00:00
+2,locked_neighborhood_source,False,119,2024-08-06 17:00:00+00:00,2025-08-17 06:00:00+00:00
+3,locked_neighborhood_source,False,120,2024-08-06 17:00:00+00:00,2025-08-31 06:00:00+00:00
+4,locked_neighborhood_source,False,121,2024-08-06 17:00:00+00:00,2025-09-14 06:00:00+00:00
+5,locked_neighborhood_source,False,125,2024-08-06 17:00:00+00:00,2025-09-28 06:00:00+00:00
+6,locked_neighborhood_source,False,133,2024-08-06 17:00:00+00:00,2025-10-12 06:00:00+00:00
+7,locked_neighborhood_source,False,133,2024-08-06 17:00:00+00:00,2025-10-26 06:00:00+00:00
+8,locked_neighborhood_source,False,138,2024-08-06 17:00:00+00:00,2025-11-09 06:00:00+00:00
+9,locked_neighborhood_source,False,146,2024-08-06 17:00:00+00:00,2025-11-23 06:00:00+00:00
+10,locked_neighborhood_source,False,147,2024-08-06 17:00:00+00:00,2025-12-07 06:00:00+00:00
+11,locked_neighborhood_source,False,152,2024-08-06 17:00:00+00:00,2025-12-21 06:00:00+00:00
+12,locked_neighborhood_source,False,162,2024-08-06 17:00:00+00:00,2026-01-04 06:00:00+00:00
+13,locked_neighborhood_source,False,162,2024-08-06 17:00:00+00:00,2026-01-18 06:00:00+00:00
+14,locked_neighborhood_source,False,162,2024-08-06 17:00:00+00:00,2026-02-01 06:00:00+00:00
+15,locked_neighborhood_source,False,162,2024-08-06 17:00:00+00:00,2026-02-15 06:00:00+00:00
+16,locked_neighborhood_source,False,162,2024-08-06 17:00:00+00:00,2026-03-01 06:00:00+00:00
+17,locked_neighborhood_source,False,171,2024-08-06 17:00:00+00:00,2026-03-15 06:00:00+00:00
