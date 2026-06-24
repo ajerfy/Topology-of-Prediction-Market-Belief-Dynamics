@@ -1,0 +1,4 @@
+candidate,baseline,cluster,mean_log_loss_gain,ci_low,ci_high,n_units
+local_topology_locked,pca_only,row,0.02425702807763371,0.023420009579962976,0.02514382387890268,282976
+local_topology_locked,pca_only,market_id,0.02425702807763371,0.003760554318818058,0.04505469428183416,105
+local_topology_locked,pca_only,timestamp,0.02425702807763371,0.0233949098020346,0.025279415479976877,5712
