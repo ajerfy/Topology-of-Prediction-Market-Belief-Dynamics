@@ -194,6 +194,47 @@ def build_graph_topology(panel: pd.DataFrame, fold: Fold) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def build_market_neighborhood_topology(panel: pd.DataFrame, fold: Fold) -> pd.DataFrame:
+    train_panel = panel.loc[(panel.index >= fold.train_start) & (panel.index <= fold.train_end)].copy()
+    train_panel.columns = train_panel.columns.astype(str)
+    values = train_panel.ffill().bfill().fillna(0.5)
+    usable = values.loc[:, values.nunique(dropna=True) > 1]
+    if usable.shape[1] < 5:
+        return pd.DataFrame()
+
+    corr = usable.corr().replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    abs_corr = corr.abs()
+    np.fill_diagonal(abs_corr.values, -np.inf)
+
+    scaled = StandardScaler().fit_transform(usable.T)
+    scaled = np.nan_to_num(scaled, nan=0.0, posinf=10.0, neginf=-10.0)
+    n_embed = min(5, scaled.shape[0] - 1, scaled.shape[1])
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        embed = PCA(n_components=n_embed, svd_solver="full").fit_transform(scaled) if n_embed >= 1 else scaled[:, :1]
+    dist = np.linalg.norm(embed[:, None, :] - embed[None, :, :], axis=2)
+    np.fill_diagonal(dist, np.inf)
+    markets = list(usable.columns)
+
+    rows: list[dict[str, object]] = []
+    for method in ("top_corr", "nearest_pca"):
+        for k in (10, 20, 40):
+            k_eff = min(k, max(len(markets) - 1, 1))
+            for idx, market_id in enumerate(markets):
+                if method == "top_corr":
+                    neighbor_idx = np.argsort(-abs_corr.iloc[idx].to_numpy())[:k_eff]
+                else:
+                    neighbor_idx = np.argsort(dist[idx])[:k_eff]
+                ids = [markets[int(j)] for j in neighbor_idx if np.isfinite(j)]
+                ids = [market_id, *[mid for mid in ids if mid != market_id]]
+                sub = corr.loc[ids, ids].to_numpy(dtype=float)
+                row = {"market_id": market_id, "neighborhood_method": method, "k": k}
+                for threshold in GRAPH_THRESHOLDS:
+                    row.update({f"nbh_t{int(threshold * 10)}_{key}": value for key, value in graph_features_for_corr(sub, threshold).items()})
+                rows.append(row)
+    return pd.DataFrame(rows)
+
+
 def asof_merge(left: pd.DataFrame, right: pd.DataFrame, by: str | None = None) -> pd.DataFrame:
     left = left.sort_values("timestamp")
     right = right.sort_values("timestamp")
@@ -341,15 +382,16 @@ def fold_feature_frames(
     markets: pd.DataFrame,
     family_state: pd.DataFrame,
     fold: Fold,
-) -> tuple[FeatureBundle, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> tuple[FeatureBundle, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     bundle = fit_pca_bundle(family_state, fold)
     residual_topo = build_global_residual_topology(family_state, bundle.residuals, fold)
     graph_topo = build_graph_topology(panel, fold)
     local_topo = build_local_topology(panel, markets, fold)
+    neighborhood_topo = build_market_neighborhood_topology(panel, fold)
     change_topo = residual_topo.sort_values(["window_hours", "timestamp"]).copy()
     for col in [c for c in change_topo.columns if c.startswith("resid_")]:
         change_topo[f"delta_{col}"] = change_topo.groupby("window_hours")[col].diff().fillna(0.0)
-    return bundle, residual_topo, graph_topo, local_topo, change_topo
+    return bundle, residual_topo, graph_topo, local_topo, neighborhood_topo, change_topo
 
 
 def run_fold(
@@ -362,7 +404,7 @@ def run_fold(
     rows = add_future_targets(supervised, panel)
     train = fold_rows(rows, fold, "train")
     test = fold_rows(rows, fold, "test")
-    bundle, residual_topo, graph_topo, local_topo, change_topo = fold_feature_frames(panel, markets, family_state, fold)
+    bundle, residual_topo, graph_topo, local_topo, neighborhood_topo, change_topo = fold_feature_frames(panel, markets, family_state, fold)
 
     train = train.merge(bundle.pca_features, on="timestamp", how="left")
     test = test.merge(bundle.pca_features, on="timestamp", how="left")
@@ -404,6 +446,28 @@ def run_fold(
             train_p = asof_merge(train.sort_values("timestamp"), pframe.sort_values("timestamp"), by=meta_col)
             test_p = asof_merge(test.sort_values("timestamp"), pframe.sort_values("timestamp"), by=meta_col)
             run_binary("H1_local_topology", "Y_i", train_p, test_p, features, f"pca_plus_local_{group_type}_ph_{placebo}", f"local_{group_type}", placebo)
+
+    # Bounded market-specific neighborhoods: top-k correlated markets and nearest
+    # markets in training-period PCA space. These are graph-topology proxies rather
+    # than per-cell PH, which keeps the rescue sweep tractable.
+    if not neighborhood_topo.empty:
+        nbh_cols = [c for c in neighborhood_topo.columns if c.startswith("nbh_")]
+        for method in ("top_corr", "nearest_pca"):
+            for k in (10, 20, 40):
+                nbh = neighborhood_topo[neighborhood_topo["neighborhood_method"].eq(method) & neighborhood_topo["k"].eq(k)].copy()
+                if nbh.empty:
+                    continue
+                train_n = train.merge(nbh[["market_id", *nbh_cols]], on="market_id", how="left")
+                test_n = test.merge(nbh[["market_id", *nbh_cols]], on="market_id", how="left")
+                feature_set = f"local_{method}_k{k}"
+                model = f"pca_plus_{method}_k{k}_local_graph"
+                run_binary("H1_local_topology", "Y_i", train_n, test_n, [*pca_cols, *nbh_cols], model, feature_set)
+
+                shuffled = nbh.copy()
+                shuffled.loc[:, nbh_cols] = shuffled[nbh_cols].sample(frac=1.0, random_state=RANDOM_SEED + fold.fold).to_numpy()
+                train_s = train.merge(shuffled[["market_id", *nbh_cols]], on="market_id", how="left")
+                test_s = test.merge(shuffled[["market_id", *nbh_cols]], on="market_id", how="left")
+                run_binary("H1_local_topology", "Y_i", train_s, test_s, [*pca_cols, *nbh_cols], f"{model}_shuffle", feature_set, "shuffle")
 
     # Hypothesis 2: topology/proxies of rolling correlation graphs.
     graph_cols = [c for c in graph_topo.columns if c.startswith("graph_")]

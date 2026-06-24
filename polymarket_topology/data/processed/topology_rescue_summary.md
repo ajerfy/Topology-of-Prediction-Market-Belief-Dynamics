@@ -1,8 +1,8 @@
 TOPOLOGY RESCUE SWEEP SUMMARY
 
 H1_local_topology:
-- best: pca_plus_local_broad_domain_ph on Y_i (log loss 0.150809, folds 17)
-- delta vs best PCA comparator: -0.011268
+- best: pca_plus_top_corr_k20_local_graph on Y_i (log loss 0.139994, folds 17)
+- delta vs best PCA comparator: -0.022082
 - beats best placebo: yes
 
 H2_graph_topology:
@@ -31,7 +31,7 @@ H6_uncertainty_signal:
 - beats best placebo: not tested
 
 Best primary-outcome topology result:
-- H1_local_topology / pca_plus_local_broad_domain_ph / target Y_i / metric 0.150809
+- H1_local_topology / pca_plus_top_corr_k20_local_graph / target Y_i / metric 0.139994
 
 Best auxiliary topology result:
 - H3_regime_volatility / pca_plus_topology_abs_move_24h / target abs_move_24h / metric 0.000487
